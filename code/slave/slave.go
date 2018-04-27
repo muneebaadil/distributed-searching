@@ -1,36 +1,40 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"net"
+	"strconv"
+	"strings"
 )
 
-func handleConnection(conn net.Conn) {
-	//reading filenames first to update the server
-	files, err := ioutil.ReadDir("../../data/")
-	if err != nil {
-		log.Fatal(err)
+func handleConnection(conn net.Conn, dataDir string, chunkIds string) {
+	//first updating the server about the chunks this slave has
+	conn.Write([]byte(chunkIds))
+
+	//parsing the chunks_ID string into list for convenience
+	chunkIdsStr := strings.Split(chunkIds, " ")
+	chunkIds_ := []int{}
+	for _, chunkIdStr := range chunkIdsStr {
+		temp, _ := strconv.Atoi(chunkIdStr)
+		chunkIds_ = append(chunkIds_, temp)
 	}
 
-	toSend := ""
-	for _, file := range files {
-		toSend += " " + file.Name()
-	}
-	toSend = toSend[1:]
-
-	fmt.Printf("message sent to server: %s", toSend)
-	conn.Write([]byte(toSend))
+	//functionality code here
 }
 
 func main() {
-	conn, err := net.Dial("tcp", "127.0.0.1:1234")
+	serverAddress := flag.String("serverAddress", "127.0.0.1:3000", "IP and port of server")
+	dataDir := flag.String("dataDir", "../../data/chunks", "data folder containing all chunks")
+	chunkIds_ := flag.String("chunkIds", "1 2 3", "identifiers of chunk a slave is hosting")
+	//TOFIX: CLI functionality for chunkIds
+
+	conn, err := net.Dial("tcp", *serverAddress)
 
 	if err != nil {
 		fmt.Printf("error encountered with connection setup")
 
 	} else {
-		handleConnection(conn)
+		handleConnection(conn, *dataDir, *chunkIds_)
 	}
 }
