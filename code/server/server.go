@@ -1,8 +1,8 @@
 package main
 
 import (
+	"encoding/gob"
 	"flag"
-	"fmt"
 	"log"
 	"math"
 	"net"
@@ -18,6 +18,19 @@ type slave struct {
 	connection net.Conn
 }
 
+func (s *slave) sendQuery(msg message) {
+	log.Printf("message sending: type %s, client %d, slave %d, chunk %d\n", msg.messageType,
+		msg.clientID, msg.slaveID, msg.chunkID)
+
+	enc := gob.NewEncoder(s.connection)
+	enc.Encode(&msg)
+	s.load++
+}
+
+// func (s *slave) recvQuery() message {
+// 	return message{}
+// }
+//
 type client struct {
 	id      int
 	channel chan message
@@ -176,9 +189,8 @@ func scheduleJobs(toFind string, myID int) {
 			}
 
 			//sending search request to slave having minimum load
-			msgStr := fmt.Sprintf("%s %d %d", "S", myID, minLoadSlaveID)
-			slaves[minLoadSlaveID].connection.Write([]byte(msgStr))
-			slaves[minLoadSlaveID].load++
+			msg := message{messageType: "S", clientID: myID, slaveID: minLoadSlaveID, chunkID: i}
+			slaves[minLoadSlaveID].sendQuery(msg)
 
 			log.Printf("client %d: searching in chunk %d through slave %d (load=%d)",
 				myID, i, minLoadSlaveID, slaves[minLoadSlaveID].load-1)
