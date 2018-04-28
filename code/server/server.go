@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -36,6 +37,7 @@ var nextClient = 1                 //ID of next joining client
 
 //misc
 var bufferSize = 4096
+var numChunks int
 
 func listenForSlaves(portNum string) {
 
@@ -78,6 +80,9 @@ func runSlave(conn net.Conn, slaveID int) {
 	}
 
 	//code here for functionality
+	for true {
+		<-thisSlave.channel
+	}
 }
 
 func listenForClients(portNum string) {
@@ -110,9 +115,40 @@ func runClient(conn net.Conn, clientID int) {
 	buffer := make([]byte, bufferSize)
 	n, _ := conn.Read(buffer)
 	toFind := string(buffer[:n])
-	log.Printf("Client %d: String to find: %s", clientID, toFind)
+	log.Printf("client %d: string to find: %s", clientID, toFind)
 
-	for true {
+	scheduleJobs(toFind, clientID)
+}
+
+func scheduleJobs(toFind string, myID int) {
+
+	//iterating over all chunks to search on
+	for i := 1; i <= numChunks; i++ {
+		slaveIds, ok := chunks[i]
+
+		if ok == false {
+			log.Printf("chunk %d isn't connected to any slave", i)
+
+		} else {
+			minLoad := math.MaxInt32
+			minLoadSlaveID := -1
+
+			//finding minimum load of all slaves currently hosting chunks[i]
+			for _, currSlaveID := range slaveIds {
+				currSlave := slaves[currSlaveID]
+
+				if currSlave.load < minLoad {
+					minLoad = currSlave.load
+					minLoadSlaveID = currSlaveID
+				}
+			}
+
+			//sending search request to slave having minimum load
+			msg := message{messageType: "S", clientID: myID, slaveID: minLoadSlaveID}
+			slaves[minLoadSlaveID].channel <- msg
+			log.Printf("client %d: searching in chunk %d through slave %d",
+				myID, i, minLoadSlaveID)
+		}
 	}
 }
 
@@ -121,6 +157,8 @@ func main() {
 	//command line parsing
 	portSlaves := flag.String("portSlaves", "3000", "port number for slaves connection")
 	portClients := flag.String("portClients", "3001", "port number for clients connection")
+	flag.IntVar(&numChunks, "numChunks", 4, "total number of chunks (must be"+
+		" numbered from 1-numChunks inclusive)")
 	flag.Parse()
 
 	//simalteneously listening for clients and slaves

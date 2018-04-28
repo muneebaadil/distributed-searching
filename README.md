@@ -21,7 +21,7 @@
     -chunkIds string
             identifiers of chunk a slave is hosting (default "1 2 3")
     -dataDir string
-        data folder containing all chunks (default "../../data/chunks")
+        data folder containing chunks (default "../../data/chunks")
     -serverAddress string
         IP and port of server (default "127.0.0.1:3000")
     ```
@@ -29,7 +29,15 @@
     ```
     go run client.go
     ```
-    
+    All options are given below 
+    ```
+    -bufferSize int
+        buffer size of buffer to store incoming messages in (default 10)
+    -serverAddress string
+        IP and port of server (default "127.0.0.1:3001")
+    -toFind string
+        string to search from the server (default "helloworld")
+    ```
 ## Authors 
 * Muneeb Aadil
 * Shahnoor Tariq 
