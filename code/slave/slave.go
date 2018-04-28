@@ -27,6 +27,7 @@ func main() {
 	serverAddress := flag.String("serverAddress", "127.0.0.1:3000", "IP and port of server")
 	dataDir := flag.String("dataDir", "../../data/chunks", "data folder containing all chunks")
 	chunkIds_ := flag.String("chunkIds", "1 2 3", "identifiers of chunk a slave is hosting")
+	flag.Parse()
 	//TOFIX: CLI functionality for chunkIds
 
 	conn, err := net.Dial("tcp", *serverAddress)

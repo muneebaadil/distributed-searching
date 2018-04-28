@@ -75,10 +75,6 @@ func runSlave(conn net.Conn, slaveID int) {
 	for _, chunkId_ := range chunkIds {
 		chunkId, _ := strconv.Atoi(chunkId_)
 		chunks[chunkId] = append(chunks[chunkId], slaveID)
-
-		fmt.Printf("key %d", chunkId)
-		fmt.Print(chunks[chunkId])
-		fmt.Printf("\n")
 	}
 
 	//code here for functionality
@@ -110,6 +106,14 @@ func runClient(conn net.Conn, clientID int) {
 	//registering new client
 	newClient := client{id: clientID, channel: make(chan message)}
 	clients[clientID] = newClient
+
+	buffer := make([]byte, bufferSize)
+	n, _ := conn.Read(buffer)
+	toFind := string(buffer[:n])
+	log.Printf("Client %d: String to find: %s", clientID, toFind)
+
+	for true {
+	}
 }
 
 func main() {
