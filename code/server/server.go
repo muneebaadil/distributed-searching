@@ -27,14 +27,15 @@ type message struct {
 	messageType string
 	clientID    int
 	slaveID     int
+	chunkID     int
 }
 
 //global maps for book-keeping
-var chunks = make(map[int][]int)   //chunk ID -> slave IDs
-var slaves = make(map[int]slave)   //slave ID -> slave object
-var clients = make(map[int]client) //client ID -> client object
-var nextSlave = 1                  //ID of next joining slave
-var nextClient = 1                 //ID of next joining client
+var chunks = make(map[int][]int)    //chunk ID -> slave IDs
+var slaves = make(map[int]*slave)   //slave ID -> pointer to slave object
+var clients = make(map[int]*client) //client ID -> pointer to client object
+var nextSlave = 1                   //ID of next joining slave
+var nextClient = 1                  //ID of next joining client
 
 //misc
 var bufferSize = 4096
@@ -85,7 +86,7 @@ func listenForSlaves(portNum string) {
 func runSlave(conn net.Conn, slaveID int) {
 	//registering new slave
 	thisSlave := slave{id: slaveID, load: 0, connection: conn}
-	slaves[slaveID] = thisSlave
+	slaves[slaveID] = &thisSlave
 
 	//retrieving the record of data chunks the new slave has
 	buffer := make([]byte, bufferSize)
@@ -99,6 +100,7 @@ func runSlave(conn net.Conn, slaveID int) {
 		chunks[chunkId] = append(chunks[chunkId], slaveID)
 	}
 
+	//indefinite reading of responses from slave
 	for true {
 		conn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
 		n, err := conn.Read(buffer)
@@ -106,10 +108,11 @@ func runSlave(conn net.Conn, slaveID int) {
 		if err != nil {
 			conn.Close()
 			log.Printf("connection lost")
+
+			//re-reoute pending requests to other slaves
 			break
 		} else {
 			newMsg = string(buffer[:n])
-			log.Printf("new message: %s", newMsg)
 		}
 	}
 }
@@ -139,7 +142,7 @@ func listenForClients(portNum string) {
 func runClient(conn net.Conn, clientID int) {
 	//registering new client
 	newClient := client{id: clientID, channel: make(chan message)}
-	clients[clientID] = newClient
+	clients[clientID] = &newClient
 
 	buffer := make([]byte, bufferSize)
 	n, _ := conn.Read(buffer)
@@ -175,8 +178,10 @@ func scheduleJobs(toFind string, myID int) {
 			//sending search request to slave having minimum load
 			msgStr := fmt.Sprintf("%s %d %d", "S", myID, minLoadSlaveID)
 			slaves[minLoadSlaveID].connection.Write([]byte(msgStr))
-			log.Printf("client %d: searching in chunk %d through slave %d",
-				myID, i, minLoadSlaveID)
+			slaves[minLoadSlaveID].load++
+
+			log.Printf("client %d: searching in chunk %d through slave %d (load=%d)",
+				myID, i, minLoadSlaveID, slaves[minLoadSlaveID].load-1)
 		}
 	}
 }

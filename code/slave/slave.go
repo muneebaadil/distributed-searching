@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -28,7 +27,7 @@ func handleConnection(conn net.Conn, dataDir string, chunkIds string) {
 	for true {
 		time.Sleep(time.Duration(heartbeatFreq) * time.Second)
 		conn.Write([]byte("heartbeat"))
-		log.Printf("heartbeat sent")
+		//log.Printf("heartbeat sent")
 	}
 }
 

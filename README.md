@@ -7,10 +7,14 @@
     ```
     All options are given below
     ```
+    -numChunks int
+        total number of chunks (must be numbered from 1-numChunks inclusive) (default 4)
     -portClients string
-            port number for clients connection (default "3001")
+        port number for clients connection (default "3001")
     -portSlaves string
-            port number for slaves connection (default "3000")
+        port number for slaves connection (default "3000")
+    -timeout int
+        time threshold (in seconds) for heartbeat from slaves (default 3)
     ```
 2. Afterwards, run slave(s) like so: 
     ```
@@ -19,9 +23,11 @@
     All options are given below 
     ```
     -chunkIds string
-            identifiers of chunk a slave is hosting (default "1 2 3")
+        identifiers of chunk a slave is hosting (default "1 2 3")
     -dataDir string
-        data folder containing chunks (default "../../data/chunks")
+        data folder containing all chunks (default "../../data/chunks")
+    -heartbeatFreq int
+        time (in seconds) after which to send periodic heartbeat (default 2)
     -serverAddress string
         IP and port of server (default "127.0.0.1:3000")
     ```
