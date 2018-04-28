@@ -8,13 +8,14 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //some structures for better information management
 type slave struct {
-	id      int
-	load    int
-	channel chan message
+	id         int
+	load       int
+	connection net.Conn
 }
 
 type client struct {
@@ -38,6 +39,26 @@ var nextClient = 1                 //ID of next joining client
 //misc
 var bufferSize = 4096
 var numChunks int
+var timeout int
+
+//a few auxliary functions specific to message structure
+//and the implementation
+func _connRead(conn net.Conn, buffer []byte) string {
+	n, err := conn.Read(buffer)
+	if err != nil {
+		return "timeout"
+	} else {
+		return string(buffer[:n])
+	}
+}
+
+func _connSendMsg(conn net.Conn, msg message) {
+
+}
+
+func _connRecvMsg(conn net.Conn) message {
+	return message{}
+}
 
 func listenForSlaves(portNum string) {
 
@@ -63,14 +84,13 @@ func listenForSlaves(portNum string) {
 
 func runSlave(conn net.Conn, slaveID int) {
 	//registering new slave
-	thisSlave := slave{id: slaveID, load: 0, channel: make(chan message)}
+	thisSlave := slave{id: slaveID, load: 0, connection: conn}
 	slaves[slaveID] = thisSlave
 
 	//retrieving the record of data chunks the new slave has
 	buffer := make([]byte, bufferSize)
 	n, _ := conn.Read(buffer)
 	newMsg := string(buffer[:n])
-	fmt.Printf("new message: %s\n", newMsg)
 	chunkIds := strings.Split(newMsg, " ")
 
 	//updating chunk directory
@@ -79,9 +99,18 @@ func runSlave(conn net.Conn, slaveID int) {
 		chunks[chunkId] = append(chunks[chunkId], slaveID)
 	}
 
-	//code here for functionality
 	for true {
-		<-thisSlave.channel
+		conn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
+		n, err := conn.Read(buffer)
+
+		if err != nil {
+			conn.Close()
+			log.Printf("connection lost")
+			break
+		} else {
+			newMsg = string(buffer[:n])
+			log.Printf("new message: %s", newMsg)
+		}
 	}
 }
 
@@ -144,8 +173,8 @@ func scheduleJobs(toFind string, myID int) {
 			}
 
 			//sending search request to slave having minimum load
-			msg := message{messageType: "S", clientID: myID, slaveID: minLoadSlaveID}
-			slaves[minLoadSlaveID].channel <- msg
+			msgStr := fmt.Sprintf("%s %d %d", "S", myID, minLoadSlaveID)
+			slaves[minLoadSlaveID].connection.Write([]byte(msgStr))
 			log.Printf("client %d: searching in chunk %d through slave %d",
 				myID, i, minLoadSlaveID)
 		}
@@ -159,6 +188,7 @@ func main() {
 	portClients := flag.String("portClients", "3001", "port number for clients connection")
 	flag.IntVar(&numChunks, "numChunks", 4, "total number of chunks (must be"+
 		" numbered from 1-numChunks inclusive)")
+	flag.IntVar(&timeout, "timeout", 3, "time threshold (in seconds) for heartbeat from slaves")
 	flag.Parse()
 
 	//simalteneously listening for clients and slaves
