@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"encoding/gob"
 	"flag"
 	"fmt"
 	"log"
@@ -30,6 +29,23 @@ type message struct {
 type intint struct {
 	first  int
 	second int
+}
+
+func msg2str(msg message) string {
+	out := fmt.Sprintf("%s %d %d %d ", msg.messageType, msg.slaveID,
+		msg.clientID, msg.chunkID)
+	return out
+}
+
+func str2msg(str string) message {
+	temp := strings.Split(str, " ")
+	msgType := temp[0]
+	slaveID, _ := strconv.Atoi(temp[1])
+	clientID, _ := strconv.Atoi(temp[2])
+	chunkID, _ := strconv.Atoi(temp[3])
+	out := message{messageType: msgType, slaveID: slaveID,
+		clientID: clientID, chunkID: chunkID}
+	return out
 }
 
 //global variable(s) for bookkeeping
@@ -67,10 +83,13 @@ func handleConnection(conn net.Conn, chunkIds string) {
 	}
 
 	//functionality code here
+	// dec := gob.NewDecoder(conn)
+	// newMsg := &message{}
+	buffer := make([]byte, 4096)
+
 	for true {
-		dec := gob.NewDecoder(conn)
-		newMsg := &message{}
-		dec.Decode(newMsg)
+		n, _ := conn.Read(buffer)
+		newMsg := str2msg(string(buffer[:n]))
 
 		log.Printf("new message: type %s, client %d, slave %d, chunk %d", newMsg.messageType,
 			newMsg.clientID, newMsg.slaveID, newMsg.chunkID)
@@ -80,14 +99,14 @@ func handleConnection(conn net.Conn, chunkIds string) {
 
 		if ok == false { //if new request
 			//registering a new request
-			newReq := request{msg: *newMsg, channel: make(chan message)}
+			newReq := request{msg: newMsg, channel: make(chan message)}
 			requests[reqID] = newReq
 
 			//delegating the request to go routine
 			go handleRequest(conn, reqID)
 
 		} else { //if request already being handled
-			req.channel <- *newMsg
+			req.channel <- newMsg
 		}
 	}
 }
@@ -124,7 +143,6 @@ func main() {
 	flag.IntVar(&heartbeatFreq, "heartbeatFreq", 2, "time (in seconds) after which to send"+
 		" periodic heartbeat")
 	flag.Parse()
-	//TOFIX: CLI functionality for chunkIds
 
 	conn, err := net.Dial("tcp", *serverAddress)
 

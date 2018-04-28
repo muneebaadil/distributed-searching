@@ -1,8 +1,8 @@
 package main
 
 import (
-	"encoding/gob"
 	"flag"
+	"fmt"
 	"log"
 	"math"
 	"net"
@@ -19,11 +19,10 @@ type slave struct {
 }
 
 func (s *slave) sendQuery(msg message) {
-	log.Printf("message sending: type %s, client %d, slave %d, chunk %d\n", msg.messageType,
+	log.Printf("message sending: type %s, client %d, slave %d, chunk %d", msg.messageType,
 		msg.clientID, msg.slaveID, msg.chunkID)
-
-	enc := gob.NewEncoder(s.connection)
-	enc.Encode(&msg)
+	msgStr := msg2str(msg)
+	s.connection.Write([]byte(msgStr))
 	s.load++
 }
 
@@ -41,6 +40,23 @@ type message struct {
 	clientID    int
 	slaveID     int
 	chunkID     int
+}
+
+func msg2str(msg message) string {
+	out := fmt.Sprintf("%s %d %d %d ", msg.messageType, msg.slaveID,
+		msg.clientID, msg.chunkID)
+	return out
+}
+
+func str2msg(str string) message {
+	temp := strings.Split(str, " ")
+	msgType := temp[0]
+	slaveID, _ := strconv.Atoi(temp[1])
+	clientID, _ := strconv.Atoi(temp[2])
+	chunkID, _ := strconv.Atoi(temp[3])
+	out := message{messageType: msgType, slaveID: slaveID,
+		clientID: clientID, chunkID: chunkID}
+	return out
 }
 
 //global maps for book-keeping
