@@ -50,6 +50,12 @@ type message struct {
 	toFind      string
 }
 
+//tuple of two integers
+type intint struct {
+	first  int
+	second int
+}
+
 func msg2str(msg message) string {
 	out := fmt.Sprintf("%s %d %d %d %s ", msg.messageType, msg.slaveID,
 		msg.clientID, msg.chunkID, msg.toFind)
@@ -175,7 +181,7 @@ func runClient(conn net.Conn, clientID int) {
 	reqSlaveIds := scheduleJobs(toFind, clientID)
 	isFound := false
 	numResps := 0
-	var foundMsg message
+	var foundRespID intint
 
 	for (isFound == false) && (numResps < len(reqSlaveIds)) {
 		newMsg := <-clients[clientID].channel
@@ -188,22 +194,27 @@ func runClient(conn net.Conn, clientID int) {
 		}
 
 		isFound = isFound || (newMsg.messageType == "F")
-		foundMsg = newMsg
+		foundRespID = intint{newMsg.clientID, newMsg.chunkID}
 	}
 
-	foundMsg.messageType = "H"
 	if isFound == true {
 		conn.Write([]byte("1"))
+		//fmt.Printf("to send halt message to %v", reqSlaveIds)
 
 		//send halting signal to other slaves
-		// for _, slaveID := range reqSlaveIds {
-		// 	if slaveID != foundMsg.slaveID {
+		haltMsg := message{messageType: "H", slaveID: reqSlaveIds[0],
+			clientID: clientID, chunkID: 1}
 
-		// 		foundMsg.slaveID = slaveID
-		// 		slaves[slaveID].sendHalt(foundMsg)
-		// 		fmt.Printf("Sending halting message to slave %d", slaveID)
-		// 	}
-		// }
+		for chunkID, slaveID := range reqSlaveIds {
+			haltMsg.slaveID = slaveID
+			haltMsg.chunkID = chunkID + 1
+
+			if (foundRespID != intint{clientID, chunkID + 1}) {
+				fmt.Printf("sending halt message to slave %d, client %d, chunk %d",
+					slaveID, clientID, chunkID+1)
+				slaves[slaveID].sendHalt(haltMsg)
+			}
+		}
 	} else {
 		conn.Write([]byte("0"))
 	}
@@ -238,7 +249,7 @@ func scheduleJobs(toFind string, myID int) []int {
 			slaves[minLoadSlaveID].sendQuery(msg)
 
 			log.Printf("client %d: searching in chunk %d through slave %d (load=%d)",
-				myID, i, minLoadSlaveID, slaves[minLoadSlaveID].load-1)
+				myID, i, minLoadSlaveID, slaves[minLoadSlaveID].load)
 
 			time.Sleep(time.Duration(1) * time.Second)
 			numReqs = append(numReqs, minLoadSlaveID)
