@@ -19,17 +19,12 @@ type slave struct {
 }
 
 func (s *slave) sendQuery(msg message) {
-	log.Printf("message sending: type %s, client %d, slave %d, chunk %d", msg.messageType,
-		msg.clientID, msg.slaveID, msg.chunkID)
 	msgStr := msg2str(msg)
+	log.Printf("message sent: %s", msgStr)
 	s.connection.Write([]byte(msgStr))
 	s.load++
 }
 
-// func (s *slave) recvQuery() message {
-// 	return message{}
-// }
-//
 type client struct {
 	id      int
 	channel chan message
@@ -40,11 +35,12 @@ type message struct {
 	clientID    int
 	slaveID     int
 	chunkID     int
+	toFind      string
 }
 
 func msg2str(msg message) string {
-	out := fmt.Sprintf("%s %d %d %d ", msg.messageType, msg.slaveID,
-		msg.clientID, msg.chunkID)
+	out := fmt.Sprintf("%s %d %d %d %s ", msg.messageType, msg.slaveID,
+		msg.clientID, msg.chunkID, msg.toFind)
 	return out
 }
 
@@ -54,8 +50,9 @@ func str2msg(str string) message {
 	slaveID, _ := strconv.Atoi(temp[1])
 	clientID, _ := strconv.Atoi(temp[2])
 	chunkID, _ := strconv.Atoi(temp[3])
+	toFind := temp[4]
 	out := message{messageType: msgType, slaveID: slaveID,
-		clientID: clientID, chunkID: chunkID}
+		clientID: clientID, chunkID: chunkID, toFind: toFind}
 	return out
 }
 
@@ -70,25 +67,6 @@ var nextClient = 1                  //ID of next joining client
 var bufferSize = 4096
 var numChunks int
 var timeout int
-
-//a few auxliary functions specific to message structure
-//and the implementation
-func _connRead(conn net.Conn, buffer []byte) string {
-	n, err := conn.Read(buffer)
-	if err != nil {
-		return "timeout"
-	} else {
-		return string(buffer[:n])
-	}
-}
-
-func _connSendMsg(conn net.Conn, msg message) {
-
-}
-
-func _connRecvMsg(conn net.Conn) message {
-	return message{}
-}
 
 func listenForSlaves(portNum string) {
 
@@ -140,8 +118,14 @@ func runSlave(conn net.Conn, slaveID int) {
 
 			//re-reoute pending requests to other slaves
 			break
+
 		} else {
-			newMsg = string(buffer[:n])
+			newMsgStr := string(buffer[:n])
+
+			if newMsgStr != "heartbeat" { //if a processing message
+				newMsg := str2msg(newMsgStr)
+				clients[newMsg.clientID].channel <- newMsg
+			}
 		}
 	}
 }
@@ -205,11 +189,13 @@ func scheduleJobs(toFind string, myID int) {
 			}
 
 			//sending search request to slave having minimum load
-			msg := message{messageType: "S", clientID: myID, slaveID: minLoadSlaveID, chunkID: i}
+			msg := message{messageType: "S", clientID: myID, slaveID: minLoadSlaveID, chunkID: i, toFind: toFind}
 			slaves[minLoadSlaveID].sendQuery(msg)
 
 			log.Printf("client %d: searching in chunk %d through slave %d (load=%d)",
 				myID, i, minLoadSlaveID, slaves[minLoadSlaveID].load-1)
+
+			time.Sleep(time.Duration(1) * time.Second)
 		}
 	}
 }
@@ -228,3 +214,22 @@ func main() {
 	go listenForSlaves(*portSlaves)
 	listenForClients(*portClients)
 }
+
+//a few auxliary functions specific to message structure
+//and the implementation
+// func _connRead(conn net.Conn, buffer []byte) string {
+// 	n, err := conn.Read(buffer)
+// 	if err != nil {
+// 		return "timeout"
+// 	} else {
+// 		return string(buffer[:n])
+// 	}
+// }
+
+// func _connSendMsg(conn net.Conn, msg message) {
+
+// }
+
+// func _connRecvMsg(conn net.Conn) message {
+// 	return message{}
+// }

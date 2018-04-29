@@ -23,6 +23,7 @@ type message struct {
 	clientID    int
 	slaveID     int
 	chunkID     int
+	toFind      string
 }
 
 //tuple of two integers
@@ -32,8 +33,8 @@ type intint struct {
 }
 
 func msg2str(msg message) string {
-	out := fmt.Sprintf("%s %d %d %d ", msg.messageType, msg.slaveID,
-		msg.clientID, msg.chunkID)
+	out := fmt.Sprintf("%s %d %d %d %s ", msg.messageType, msg.slaveID,
+		msg.clientID, msg.chunkID, msg.toFind)
 	return out
 }
 
@@ -43,8 +44,9 @@ func str2msg(str string) message {
 	slaveID, _ := strconv.Atoi(temp[1])
 	clientID, _ := strconv.Atoi(temp[2])
 	chunkID, _ := strconv.Atoi(temp[3])
+	toFind := temp[4]
 	out := message{messageType: msgType, slaveID: slaveID,
-		clientID: clientID, chunkID: chunkID}
+		clientID: clientID, chunkID: chunkID, toFind: toFind}
 	return out
 }
 
@@ -83,27 +85,26 @@ func handleConnection(conn net.Conn, chunkIds string) {
 	}
 
 	//functionality code here
-	// dec := gob.NewDecoder(conn)
-	// newMsg := &message{}
 	buffer := make([]byte, 4096)
 
 	for true {
 		n, _ := conn.Read(buffer)
 		newMsg := str2msg(string(buffer[:n]))
 
-		log.Printf("new message: type %s, client %d, slave %d, chunk %d", newMsg.messageType,
-			newMsg.clientID, newMsg.slaveID, newMsg.chunkID)
+		log.Printf("new message: type %s, client %d, slave %d, chunk %d, tofind: %s", newMsg.messageType,
+			newMsg.clientID, newMsg.slaveID, newMsg.chunkID, newMsg.toFind)
 
 		reqID := intint{newMsg.clientID, newMsg.chunkID}
 		req, ok := requests[reqID]
 
 		if ok == false { //if new request
 			//registering a new request
+			fmt.Printf("registering a new request\n")
 			newReq := request{msg: newMsg, channel: make(chan message)}
 			requests[reqID] = newReq
 
 			//delegating the request to go routine
-			go handleRequest(conn, reqID)
+			go handleRequest(conn, reqID, newMsg.toFind)
 
 		} else { //if request already being handled
 			req.channel <- newMsg
@@ -111,7 +112,7 @@ func handleConnection(conn net.Conn, chunkIds string) {
 	}
 }
 
-func handleRequest(conn net.Conn, reqID intint) {
+func handleRequest(conn net.Conn, reqID intint, toFind string) {
 	fileName := fmt.Sprintf("%s/%d.txt", dataDir, requests[reqID].msg.chunkID)
 	f, err := os.Open(fileName)
 
@@ -121,11 +122,23 @@ func handleRequest(conn net.Conn, reqID intint) {
 
 	} else {
 		r := bufio.NewReader(f)
+		isFound := false
 		s, err := Readln(r)
-		for err == nil {
-			fmt.Printf("pass: %s", s)
-			break
+		for (err == nil) && (isFound == false) {
+			if s == toFind {
+				isFound = true
+			}
+			s, err = Readln(r)
 		}
+		outMsg := requests[reqID].msg
+		if isFound == false {
+			outMsg.messageType = "N"
+		} else {
+			outMsg.messageType = "F"
+			fmt.Printf("Found it!\n")
+		}
+		conn.Write([]byte(msg2str(outMsg)))
+		//close the connection and delete request
 	}
 }
 
