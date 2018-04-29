@@ -20,9 +20,21 @@ type slave struct {
 
 func (s *slave) sendQuery(msg message) {
 	msgStr := msg2str(msg)
-	log.Printf("message sent: %s", msgStr)
+	//log.Printf("message sent: %s", msgStr)
 	s.connection.Write([]byte(msgStr))
 	s.load++
+}
+
+func (s *slave) sendHalt(msg message) {
+	msgStr := msg2str(msg)
+	s.connection.Write([]byte(msgStr))
+	s.load--
+}
+
+func (s *slave) routeMsg2Client(msgStr string) {
+	newMsg := str2msg(msgStr)
+	clients[newMsg.clientID].channel <- newMsg
+	s.load--
 }
 
 type client struct {
@@ -121,10 +133,8 @@ func runSlave(conn net.Conn, slaveID int) {
 
 		} else {
 			newMsgStr := string(buffer[:n])
-
 			if newMsgStr != "heartbeat" { //if a processing message
-				newMsg := str2msg(newMsgStr)
-				clients[newMsg.clientID].channel <- newMsg
+				slaves[slaveID].routeMsg2Client(newMsgStr)
 			}
 		}
 	}
@@ -162,27 +172,45 @@ func runClient(conn net.Conn, clientID int) {
 	toFind := string(buffer[:n])
 	log.Printf("client %d: string to find: %s", clientID, toFind)
 
-	scheduleJobs(toFind, clientID)
+	reqSlaveIds := scheduleJobs(toFind, clientID)
 	isFound := false
+	numResps := 0
+	var foundMsg message
 
-	for true {
+	for (isFound == false) && (numResps < len(reqSlaveIds)) {
 		newMsg := <-clients[clientID].channel
-		isFound = isFound || (newMsg.messageType == "F")
 
-		if isFound == true {
-			break
+		if (newMsg.messageType == "F") || (newMsg.messageType == "N") {
+			numResps++
+
+		} else { //error message
+			//add functionality here
 		}
+
+		isFound = isFound || (newMsg.messageType == "F")
+		foundMsg = newMsg
 	}
 
+	foundMsg.messageType = "H"
 	if isFound == true {
 		conn.Write([]byte("1"))
+
+		//send halting signal to other slaves
+		// for _, slaveID := range reqSlaveIds {
+		// 	if slaveID != foundMsg.slaveID {
+
+		// 		foundMsg.slaveID = slaveID
+		// 		slaves[slaveID].sendHalt(foundMsg)
+		// 		fmt.Printf("Sending halting message to slave %d", slaveID)
+		// 	}
+		// }
 	} else {
 		conn.Write([]byte("0"))
 	}
 }
 
-func scheduleJobs(toFind string, myID int) {
-
+func scheduleJobs(toFind string, myID int) []int {
+	numReqs := []int{}
 	//iterating over all chunks to search on
 	for i := 1; i <= numChunks; i++ {
 		slaveIds, ok := chunks[i]
@@ -205,25 +233,31 @@ func scheduleJobs(toFind string, myID int) {
 			}
 
 			//sending search request to slave having minimum load
-			msg := message{messageType: "S", clientID: myID, slaveID: minLoadSlaveID, chunkID: i, toFind: toFind}
+			msg := message{messageType: "S", clientID: myID, slaveID: minLoadSlaveID,
+				chunkID: i, toFind: toFind}
 			slaves[minLoadSlaveID].sendQuery(msg)
 
 			log.Printf("client %d: searching in chunk %d through slave %d (load=%d)",
 				myID, i, minLoadSlaveID, slaves[minLoadSlaveID].load-1)
 
 			time.Sleep(time.Duration(1) * time.Second)
+			numReqs = append(numReqs, minLoadSlaveID)
 		}
 	}
+	return numReqs
 }
 
 func main() {
 
 	//command line parsing
-	portSlaves := flag.String("portSlaves", "3000", "port number for slaves connection")
-	portClients := flag.String("portClients", "3001", "port number for clients connection")
+	portSlaves := flag.String("portSlaves", "3000", "port number for slaves"+
+		" connection")
+	portClients := flag.String("portClients", "3001", "port number for"+
+		" clients connection")
 	flag.IntVar(&numChunks, "numChunks", 4, "total number of chunks (must be"+
 		" numbered from 1-numChunks inclusive)")
-	flag.IntVar(&timeout, "timeout", 3, "time threshold (in seconds) for heartbeat from slaves")
+	flag.IntVar(&timeout, "timeout", 3, "time threshold (in seconds) for"+
+		" heartbeat from slaves")
 	flag.Parse()
 
 	//simalteneously listening for clients and slaves

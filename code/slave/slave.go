@@ -137,8 +137,12 @@ func handleRequest(conn net.Conn, reqID intint, toFind string) {
 			outMsg.messageType = "F"
 			fmt.Printf("Found it!\n")
 		}
+
+		//send the result back to server
 		conn.Write([]byte(msg2str(outMsg)))
-		//close the connection and delete request
+
+		//delete request from the directory
+		delete(requests, reqID)
 	}
 }
 
