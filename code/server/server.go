@@ -210,9 +210,11 @@ func runClient(conn net.Conn, clientID int) {
 			haltMsg.chunkID = chunkID + 1
 
 			if (foundRespID != intint{clientID, chunkID + 1}) {
-				fmt.Printf("sending halt message to slave %d, client %d, chunk %d",
+				fmt.Printf("sending halt message to slave %d, client %d, chunk %d\n",
 					slaveID, clientID, chunkID+1)
 				slaves[slaveID].sendHalt(haltMsg)
+				//time.Sleep(time.Duration(1) * time.Second)
+
 			}
 		}
 	} else {

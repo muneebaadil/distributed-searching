@@ -51,7 +51,7 @@ func str2msg(str string) message {
 }
 
 //global variable(s) for bookkeeping
-var requests = make(map[intint]request)
+var requests = make(map[intint]*request)
 
 //misc
 var heartbeatFreq int
@@ -91,20 +91,19 @@ func handleConnection(conn net.Conn, chunkIds string) {
 		n, _ := conn.Read(buffer)
 		newMsg := str2msg(string(buffer[:n]))
 
-		log.Printf("new message: type %s, client %d, slave %d, chunk %d, tofind: %s", newMsg.messageType,
-			newMsg.clientID, newMsg.slaveID, newMsg.chunkID, newMsg.toFind)
-
 		reqID := intint{newMsg.clientID, newMsg.chunkID}
 		req, ok := requests[reqID]
 
 		if ok == false { //if new request
-			//registering a new request
-			fmt.Printf("registering a new request\n")
-			newReq := request{msg: newMsg, channel: make(chan message)}
-			requests[reqID] = newReq
 
-			//delegating the request to go routine
-			go handleRequest(conn, reqID, newMsg.toFind)
+			if newMsg.messageType != "H" {
+				//registering a new request
+				newReq := &request{msg: newMsg, channel: make(chan message)}
+				requests[reqID] = newReq
+
+				//delegating the request to go routine
+				go handleRequest(conn, reqID, newReq, newMsg.toFind)
+			}
 
 		} else { //if request already being handled
 			req.channel <- newMsg
@@ -112,7 +111,7 @@ func handleConnection(conn net.Conn, chunkIds string) {
 	}
 }
 
-func handleRequest(conn net.Conn, reqID intint, toFind string) {
+func handleRequest(conn net.Conn, reqID intint, req *request, toFind string) {
 	fileName := fmt.Sprintf("%s/%d.txt", dataDir, requests[reqID].msg.chunkID)
 	f, err := os.Open(fileName)
 
@@ -123,25 +122,37 @@ func handleRequest(conn net.Conn, reqID intint, toFind string) {
 	} else {
 		r := bufio.NewReader(f)
 		isFound := false
+		isHalt := false
 		s, err := Readln(r)
-		for (err == nil) && (isFound == false) {
-			if s == toFind {
-				isFound = true
+		for (err == nil) && (isFound == false) && (isHalt == false) {
+
+			select {
+			case <-req.channel:
+				isHalt = true
+				// fmt.Printf("halt response gathered!\n")
+			default:
+				if s == toFind {
+					isFound = true
+				}
+				s, err = Readln(r)
 			}
-			s, err = Readln(r)
 		}
-		outMsg := requests[reqID].msg
-		if isFound == false {
-			outMsg.messageType = "N"
+
+		outMsg := req.msg
+		if isHalt == true {
+			fmt.Printf("request halted, deleting request\n")
+			delete(requests, reqID)
+			return
+
+		} else if isFound == true {
+			outMsg.messageType = "F"
+
 		} else {
 			outMsg.messageType = "F"
-			fmt.Printf("Found it!\n")
 		}
 
-		//send the result back to server
 		conn.Write([]byte(msg2str(outMsg)))
-
-		//delete request from the directory
+		//fmt.Printf("deleting reqID = %d %d\n", reqID.first, reqID.second)
 		delete(requests, reqID)
 	}
 }
