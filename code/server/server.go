@@ -213,7 +213,7 @@ func runClient(conn net.Conn, clientID int) {
 				fmt.Printf("sending halt message to slave %d, client %d, chunk %d\n",
 					slaveID, clientID, chunkID+1)
 				slaves[slaveID].sendHalt(haltMsg)
-				//time.Sleep(time.Duration(1) * time.Second)
+				time.Sleep(time.Duration(1) * time.Second)
 
 			}
 		}

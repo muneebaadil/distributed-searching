@@ -94,18 +94,24 @@ func handleConnection(conn net.Conn, chunkIds string) {
 		reqID := intint{newMsg.clientID, newMsg.chunkID}
 		req, ok := requests[reqID]
 
+		// if newMsg.messageType == "H" {
+		// 	fmt.Printf("request for halt reqid = %d %d\n", reqID.first, reqID.second)
+		// }
+
 		if ok == false { //if new request
 
 			if newMsg.messageType != "H" {
 				//registering a new request
 				newReq := &request{msg: newMsg, channel: make(chan message)}
 				requests[reqID] = newReq
+				//fmt.Printf("registering new reqid = %d %d\n", reqID.first, reqID.second)
 
 				//delegating the request to go routine
 				go handleRequest(conn, reqID, newReq, newMsg.toFind)
 			}
 
 		} else { //if request already being handled
+			//fmt.Printf("halt statement reqid = %d %d\n", reqID.first, reqID.second)
 			req.channel <- newMsg
 		}
 	}
@@ -140,7 +146,7 @@ func handleRequest(conn net.Conn, reqID intint, req *request, toFind string) {
 
 		outMsg := req.msg
 		if isHalt == true {
-			fmt.Printf("request halted, deleting request\n")
+			//fmt.Printf("request halted, deleted req=%d %d\n", reqID.first, reqID.second)
 			delete(requests, reqID)
 			return
 
@@ -152,7 +158,7 @@ func handleRequest(conn net.Conn, reqID intint, req *request, toFind string) {
 		}
 
 		conn.Write([]byte(msg2str(outMsg)))
-		//fmt.Printf("deleting reqID = %d %d\n", reqID.first, reqID.second)
+		//fmt.Printf("finished processing, deleted req=%d %d\n", reqID.first, reqID.second)
 		delete(requests, reqID)
 	}
 }
@@ -161,7 +167,6 @@ func sendHeartbeats(conn net.Conn) {
 	for true {
 		time.Sleep(time.Duration(heartbeatFreq) * time.Second)
 		conn.Write([]byte("heartbeat"))
-		//log.Printf("heartbeat sent")
 	}
 }
 func main() {
