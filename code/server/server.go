@@ -163,6 +163,22 @@ func runClient(conn net.Conn, clientID int) {
 	log.Printf("client %d: string to find: %s", clientID, toFind)
 
 	scheduleJobs(toFind, clientID)
+	isFound := false
+
+	for true {
+		newMsg := <-clients[clientID].channel
+		isFound = isFound || (newMsg.messageType == "F")
+
+		if isFound == true {
+			break
+		}
+	}
+
+	if isFound == true {
+		conn.Write([]byte("1"))
+	} else {
+		conn.Write([]byte("0"))
+	}
 }
 
 func scheduleJobs(toFind string, myID int) {
