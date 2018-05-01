@@ -35,7 +35,8 @@ func (s *slave) sendHalt(msg message) {
 func (s *slave) routeResp2Client(msgStr string) {
 	newMsg := str2msg(msgStr)
 	// log.Printf("(d) msg type %s, tofind %s, slave %d, client %d, chunk %d \n",
-	// 	newMsg.messageType, newMsg.toFind, newMsg.slaveID, newMsg.clientID, newMsg.chunkID)
+	// 	newMsg.messageType, newMsg.toFind, newMsg.slaveID, newMsg.clientID,
+	//newMsg.chunkID)
 	clients[newMsg.clientID].channel <- newMsg
 	s.load--
 }
@@ -242,7 +243,8 @@ func runClient(conn net.Conn, clientID int) {
 				//re-routing packets which were previously planned for failed slave
 				for chunkID, reqSlaveId := range reqSlaveIds {
 					if reqSlaveId == newMsg.slaveID {
-						reqSlaveIds[chunkID] = scheduleChunk(chunkID+1, toFind, clientID)
+						reqSlaveIds[chunkID] = scheduleChunk(chunkID+1, toFind,
+							clientID)
 					}
 				}
 			}
@@ -257,7 +259,8 @@ func runClient(conn net.Conn, clientID int) {
 	delete(clients, clientID)
 }
 
-func broadcastHalt(haltMsg message, reqSlaveIds []int, foundRespID intint, clientID int) {
+func broadcastHalt(haltMsg message, reqSlaveIds []int, foundRespID intint,
+	clientID int) {
 
 	for chunkID, slaveID := range reqSlaveIds {
 

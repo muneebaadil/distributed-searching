@@ -7,9 +7,11 @@ import (
 )
 
 func main() {
-	serverAddress := flag.String("serverAddress", "127.0.0.1:3001", "IP and port of server")
+	serverAddress := flag.String("serverAddress", "127.0.0.1:3001", "IP and port "+
+		"of server")
 	toFind := flag.String("toFind", "helloworld", "string to search from the server")
-	bufferSize := flag.Int("bufferSize", 10, "buffer size of buffer to store incoming messages in")
+	bufferSize := flag.Int("bufferSize", 10, "buffer size of buffer to store "+
+		"incoming messages in")
 	flag.Parse()
 
 	conn, err := net.Dial("tcp", *serverAddress)

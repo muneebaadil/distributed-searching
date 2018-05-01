@@ -100,7 +100,8 @@ func handleConnection(conn net.Conn, chunkIds string) {
 				//registering a new request
 				newReq := &request{msg: newMsg, channel: make(chan message)}
 				requests[reqID] = newReq
-				//fmt.Printf("registering new reqid = %d %d\n", reqID.first, reqID.second)
+				//fmt.Printf("registering new reqid = %d %d\n", reqID.first,
+				//	reqID.second)
 
 				//delegating the request to go routine
 				go handleRequest(conn, reqID, newReq, newMsg.toFind)
@@ -140,7 +141,8 @@ func handleRequest(conn net.Conn, reqID intint, req *request, toFind string) {
 			}
 		}
 
-		//deleting the request ASAP, as the whole processing is done to generate a response
+		//deleting the request ASAP, as the whole processing is done to generate a
+		// response
 		delete(requests, reqID)
 		outMsg := req.msg
 
@@ -153,7 +155,8 @@ func handleRequest(conn net.Conn, reqID intint, req *request, toFind string) {
 		}
 
 		log.Printf("msg type %s, tofind %s, slave %d, client %d, chunk %d \n",
-			outMsg.messageType, outMsg.toFind, outMsg.slaveID, outMsg.clientID, outMsg.chunkID)
+			outMsg.messageType, outMsg.toFind, outMsg.slaveID, outMsg.clientID,
+			outMsg.chunkID)
 
 		conn.Write([]byte(msg2str(outMsg)))
 	}
@@ -166,11 +169,14 @@ func sendHeartbeats(conn net.Conn) {
 	}
 }
 func main() {
-	serverAddress := flag.String("serverAddress", "127.0.0.1:3000", "IP and port of server")
-	flag.StringVar(&dataDir, "dataDir", "../../data/chunks", "data folder containing all chunks")
-	flag.StringVar(&chunkIds_, "chunkIds", "1 2 3", "identifiers of chunk a slave is hosting")
-	flag.IntVar(&heartbeatFreq, "heartbeatFreq", 2, "time (in seconds) after which to send"+
-		" periodic heartbeat")
+	serverAddress := flag.String("serverAddress", "127.0.0.1:3000", "IP and port "+
+		"of server")
+	flag.StringVar(&dataDir, "dataDir", "../../data/chunks", "data folder "+
+		"containing all chunks")
+	flag.StringVar(&chunkIds_, "chunkIds", "1 2 3", "identifiers of chunk a slave "+
+		"is hosting")
+	flag.IntVar(&heartbeatFreq, "heartbeatFreq", 2, "time (in seconds) after which "+
+		"to send periodic heartbeat")
 	flag.Parse()
 
 	conn, err := net.Dial("tcp", *serverAddress)
