@@ -161,6 +161,7 @@ func runSlave(conn net.Conn, slaveID int) {
 				errorMsg := message{messageType: "E", slaveID: slaveID}
 				v.channel <- errorMsg
 			}
+			break
 
 		} else {
 			newMsgStr := string(buffer[:n])
@@ -236,13 +237,13 @@ func runClient(conn net.Conn, clientID int) {
 				numResps++
 
 			} else {
-				//re-routing packets which were previously planned for failed slav
-				//YOU HAVE FAILED THIS PACKET, SLAVE!!
-				// for chunkID, reqSlaveId := range reqSlaveIds {
-				// 	if reqSlaveId == newMsg.slaveID {
-
-				// 	}
-				// }
+				log.Printf("Client %d: rerouting packets\n", clientID)
+				//re-routing packets which were previously planned for failed slave
+				for chunkID, reqSlaveId := range reqSlaveIds {
+					if reqSlaveId == newMsg.slaveID {
+						reqSlaveIds[chunkID] = scheduleChunk(chunkID+1, toFind, clientID)
+					}
+				}
 			}
 		}
 	}
