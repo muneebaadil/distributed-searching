@@ -154,8 +154,11 @@ func handleRequest(conn net.Conn, reqID intint, req *request, toFind string) {
 			outMsg.messageType = "F"
 
 		} else {
-			outMsg.messageType = "F"
+			outMsg.messageType = "N"
 		}
+
+		log.Printf("msg type %s, tofind %s, slave %d, client %d, chunk %d \n",
+			outMsg.messageType, outMsg.toFind, outMsg.slaveID, outMsg.clientID, outMsg.chunkID)
 
 		conn.Write([]byte(msg2str(outMsg)))
 		//fmt.Printf("finished processing, deleted req=%d %d\n", reqID.first, reqID.second)
@@ -166,7 +169,7 @@ func handleRequest(conn net.Conn, reqID intint, req *request, toFind string) {
 func sendHeartbeats(conn net.Conn) {
 	for true {
 		time.Sleep(time.Duration(heartbeatFreq) * time.Second)
-		conn.Write([]byte("heartbeat"))
+		//conn.Write([]byte("heartbeat"))
 	}
 }
 func main() {

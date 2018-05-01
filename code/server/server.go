@@ -28,11 +28,14 @@ func (s *slave) sendQuery(msg message) {
 func (s *slave) sendHalt(msg message) {
 	msgStr := msg2str(msg)
 	s.connection.Write([]byte(msgStr))
-	s.load--
+	//s.load--
+	//log.Printf("(h) %d load decremented to %d\n", s.id, s.load)
 }
 
-func (s *slave) routeMsg2Client(msgStr string) {
+func (s *slave) routeResp2Client(msgStr string) {
 	newMsg := str2msg(msgStr)
+	// log.Printf("(d) msg type %s, tofind %s, slave %d, client %d, chunk %d \n",
+	// 	newMsg.messageType, newMsg.toFind, newMsg.slaveID, newMsg.clientID, newMsg.chunkID)
 	clients[newMsg.clientID].channel <- newMsg
 	s.load--
 }
@@ -127,7 +130,7 @@ func runSlave(conn net.Conn, slaveID int) {
 
 	//indefinite reading of responses from slave
 	for true {
-		conn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
+		//conn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
 		n, err := conn.Read(buffer)
 
 		if err != nil {
@@ -139,8 +142,9 @@ func runSlave(conn net.Conn, slaveID int) {
 
 		} else {
 			newMsgStr := string(buffer[:n])
+			//fmt.Printf("new incoming message: %s\n", newMsgStr)
 			if newMsgStr != "heartbeat" { //if a processing message
-				slaves[slaveID].routeMsg2Client(newMsgStr)
+				slaves[slaveID].routeResp2Client(newMsgStr)
 			}
 		}
 	}
@@ -198,23 +202,29 @@ func runClient(conn net.Conn, clientID int) {
 	}
 
 	if isFound == true {
+		//sending away the response to client
 		conn.Write([]byte("1"))
-		//fmt.Printf("to send halt message to %v", reqSlaveIds)
 
 		//send halting signal to other slaves
 		haltMsg := message{messageType: "H", slaveID: reqSlaveIds[0],
 			clientID: clientID, chunkID: 1}
 
 		for chunkID, slaveID := range reqSlaveIds {
-			haltMsg.slaveID = slaveID
-			haltMsg.chunkID = chunkID + 1
+			select {
+			case newMsg := <-clients[clientID].channel:
+				if newMsg.messageType == "T" {
 
-			if (foundRespID != intint{clientID, chunkID + 1}) {
-				fmt.Printf("sending halt message to slave %d, client %d, chunk %d\n",
-					slaveID, clientID, chunkID+1)
-				slaves[slaveID].sendHalt(haltMsg)
-				time.Sleep(time.Duration(1) * time.Second)
+				}
+			default:
+				haltMsg.slaveID = slaveID
+				haltMsg.chunkID = chunkID + 1
 
+				if (foundRespID != intint{clientID, chunkID + 1}) {
+					log.Printf("client %d: sending halt message to slave %d, chunk %d\n",
+						clientID, slaveID, chunkID+1)
+					slaves[slaveID].sendHalt(haltMsg)
+					time.Sleep(time.Duration(1) * time.Second)
+				}
 			}
 		}
 	} else {
