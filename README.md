@@ -1,5 +1,33 @@
 # Distributed Searching
 
+## Getting Started
+1. Firstly, download the data from [here]()
+2. Extract the data; you should have the following directory structure
+    ```
+    code/
+        server.go 
+        slave.go 
+        client.go
+    data/
+        passwords.txt
+    ```
+3. Run `split.go` like so: 
+    ```
+    go run split.go
+    ```
+    Doing so will split the data into chunks and will save in `chunks/` subdirectory inside the `data/`; you should now have the following directory structure 
+    ```
+    code/
+        server.go
+        ...
+    data/
+        passwords.txt
+        chunks/ 
+            1.txt 
+            2.txt
+            ...
+    ```
+
 ## Usage
 1. Firstly, run server like so: 
     ```
