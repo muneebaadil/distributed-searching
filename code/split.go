@@ -24,7 +24,8 @@ func main() {
 	fileInfo, _ := file.Stat()
 	var fileSize int64 = fileInfo.Size()
 	const totalPartsNum_ = 4
-	const fileChunk = (716 / totalPartsNum_) * (1 << 20) // 1 MB, change this to your requirement
+	const fileChunk = (716 / totalPartsNum_) * (1 << 20)
+	// 1 MB, change this to your requirement
 
 	// calculate total number of parts the file will be chunked into
 	totalPartsNum := uint64(math.Ceil(float64(fileSize) / float64(fileChunk)))
