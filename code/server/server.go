@@ -148,10 +148,11 @@ func runSlave(conn net.Conn, slaveID int) {
 			// book-keeping removal
 			delete(slaves, slaveID)
 			for chunkID, slaveIds := range chunks {
-				if len(slaveIds) == 1 {
+				slaveIds_ := remove(slaveIds, slaveID)
+				if len(slaveIds_) == 0 {
 					delete(chunks, chunkID)
 				} else {
-					chunks[chunkID] = remove(slaveIds, slaveID)
+					chunks[chunkID] = slaveIds_
 				}
 			}
 
