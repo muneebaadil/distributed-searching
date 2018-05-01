@@ -185,50 +185,58 @@ func runClient(conn net.Conn, clientID int) {
 	reqSlaveIds := scheduleJobs(toFind, clientID)
 	isFound := false
 	numResps := 0
-	var foundRespID intint
 
-	for (isFound == false) && (numResps < len(reqSlaveIds)) {
+	for numResps < len(reqSlaveIds) {
 		newMsg := <-clients[clientID].channel
 
-		if (newMsg.messageType == "F") || (newMsg.messageType == "N") {
+		if newMsg.messageType == "N" || newMsg.messageType == "T" {
 			numResps++
 
-		} else { //error message
-			//add functionality here
-		}
+			log.Printf("client %d (num responses = %d): message %s, slave %d, chunk %d",
+				clientID, numResps, newMsg.messageType, newMsg.slaveID, newMsg.chunkID)
 
-		isFound = isFound || (newMsg.messageType == "F")
-		foundRespID = intint{newMsg.clientID, newMsg.chunkID}
-	}
+		} else if newMsg.messageType == "F" {
+			numResps++
+			isFound = true
+			conn.Write([]byte("1"))
 
-	if isFound == true {
-		//sending away the response to client
-		conn.Write([]byte("1"))
+			log.Printf("client %d (num responses = %d): message %s, slave %d, chunk %d",
+				clientID, numResps, newMsg.messageType, newMsg.slaveID, newMsg.chunkID)
 
-		//send halting signal to other slaves
-		haltMsg := message{messageType: "H", slaveID: reqSlaveIds[0],
-			clientID: clientID, chunkID: 1}
+			// foundRespID := intint{newMsg.clientID, newMsg.chunkID}
+			// haltMsg := message{messageType: "H", slaveID: reqSlaveIds[0],
+			// 	clientID: clientID, chunkID: 1}
 
-		for chunkID, slaveID := range reqSlaveIds {
-			select {
-			case newMsg := <-clients[clientID].channel:
-				if newMsg.messageType == "T" {
+			//broadcastHalt(haltMsg, reqSlaveIds, foundRespID, clientID)
 
-				}
-			default:
-				haltMsg.slaveID = slaveID
-				haltMsg.chunkID = chunkID + 1
+		} else if newMsg.messageType == "E" {
+			if isFound == true {
+				numResps++
 
-				if (foundRespID != intint{clientID, chunkID + 1}) {
-					log.Printf("client %d: sending halt message to slave %d, chunk %d\n",
-						clientID, slaveID, chunkID+1)
-					slaves[slaveID].sendHalt(haltMsg)
-					time.Sleep(time.Duration(1) * time.Second)
-				}
+			} else {
+				//re-route packet
 			}
 		}
-	} else {
+	}
+
+	if isFound == false {
 		conn.Write([]byte("0"))
+	}
+}
+
+func broadcastHalt(haltMsg message, reqSlaveIds []int, foundRespID intint, clientID int) {
+
+	for chunkID, slaveID := range reqSlaveIds {
+
+		haltMsg.slaveID = slaveID
+		haltMsg.chunkID = chunkID + 1
+
+		if (foundRespID != intint{clientID, chunkID + 1}) {
+			log.Printf("client %d: sending halt message to slave %d, chunk %d\n",
+				clientID, slaveID, chunkID+1)
+			slaves[slaveID].sendHalt(haltMsg)
+			time.Sleep(time.Duration(1) * time.Second)
+		}
 	}
 }
 
@@ -305,4 +313,49 @@ func main() {
 
 // func _connRecvMsg(conn net.Conn) message {
 // 	return message{}
+// }
+
+// RUN CLIENT CACHED PART
+// for (isFound == false) && (numResps < len(reqSlaveIds)) {
+// 	newMsg := <-clients[clientID].channel
+
+// 	if (newMsg.messageType == "F") || (newMsg.messageType == "N") {
+// 		numResps++
+
+// 	} else { //error message
+// 		//add functionality here
+// 	}
+
+// 	isFound = isFound || (newMsg.messageType == "F")
+// 	foundRespID = intint{newMsg.clientID, newMsg.chunkID}
+// }
+
+// if isFound == true {
+// 	//sending away the response to client
+// 	conn.Write([]byte("1"))
+
+// 	//send halting signal to other slaves
+// 	haltMsg := message{messageType: "H", slaveID: reqSlaveIds[0],
+// 		clientID: clientID, chunkID: 1}
+
+// 	for chunkID, slaveID := range reqSlaveIds {
+// 		select {
+// 		case newMsg := <-clients[clientID].channel:
+// 			if newMsg.messageType == "T" {
+
+// 			}
+// 		default:
+// 			haltMsg.slaveID = slaveID
+// 			haltMsg.chunkID = chunkID + 1
+
+// 			if (foundRespID != intint{clientID, chunkID + 1}) {
+// 				log.Printf("client %d: sending halt message to slave %d, chunk %d\n",
+// 					clientID, slaveID, chunkID+1)
+// 				slaves[slaveID].sendHalt(haltMsg)
+// 				time.Sleep(time.Duration(1) * time.Second)
+// 			}
+// 		}
+// 	}
+// } else {
+// 	conn.Write([]byte("0"))
 // }
