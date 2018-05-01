@@ -1,4 +1,4 @@
-packag																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																				e main
+package main
 
 import (
 	"fmt"
@@ -23,7 +23,8 @@ func main() {
 
 	fileInfo, _ := file.Stat()
 	var fileSize int64 = fileInfo.Size()
-	const fileChunk = (716 / 10) * (1 << 20) // 1 MB, change this to your requirement
+	const totalPartsNum_ = 4
+	const fileChunk = (716 / totalPartsNum_) * (1 << 20) // 1 MB, change this to your requirement
 
 	// calculate total number of parts the file will be chunked into
 	totalPartsNum := uint64(math.Ceil(float64(fileSize) / float64(fileChunk)))
@@ -37,7 +38,7 @@ func main() {
 		file.Read(partBuffer)
 
 		// write to disk
-		fileName := "../data/chunks/password_" + strconv.FormatUint(i, 10)
+		fileName := "../data/chunks/" + strconv.FormatUint(i+1, 10) + ".txt"
 		_, err := os.Create(fileName)
 
 		if err != nil {

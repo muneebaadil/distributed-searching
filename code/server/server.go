@@ -203,11 +203,11 @@ func runClient(conn net.Conn, clientID int) {
 			log.Printf("client %d (num responses = %d): message %s, slave %d, chunk %d",
 				clientID, numResps, newMsg.messageType, newMsg.slaveID, newMsg.chunkID)
 
-			// foundRespID := intint{newMsg.clientID, newMsg.chunkID}
-			// haltMsg := message{messageType: "H", slaveID: reqSlaveIds[0],
-			// 	clientID: clientID, chunkID: 1}
+			foundRespID := intint{newMsg.clientID, newMsg.chunkID}
+			haltMsg := message{messageType: "H", slaveID: reqSlaveIds[0],
+				clientID: clientID, chunkID: 1}
 
-			// broadcastHalt(haltMsg, reqSlaveIds, foundRespID, clientID)
+			broadcastHalt(haltMsg, reqSlaveIds, foundRespID, clientID)
 
 		} else if newMsg.messageType == "E" {
 			if isFound == true {
