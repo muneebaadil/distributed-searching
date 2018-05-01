@@ -143,7 +143,7 @@ func runSlave(conn net.Conn, slaveID int) {
 
 		if err != nil {
 			conn.Close()
-			log.Printf("connection lost")
+			log.Printf("Slave %d: Connection lost\n", slaveID)
 
 			// book-keeping removal
 			delete(slaves, slaveID)
@@ -154,7 +154,13 @@ func runSlave(conn net.Conn, slaveID int) {
 					chunks[chunkID] = remove(slaveIds, slaveID)
 				}
 			}
-			break
+
+			// send signal to all clients so they could re-route their
+			// packets which aren't returned
+			for _, v := range clients {
+				errorMsg := message{messageType: "E", slaveID: slaveID}
+				v.channel <- errorMsg
+			}
 
 		} else {
 			newMsgStr := string(buffer[:n])
@@ -230,7 +236,13 @@ func runClient(conn net.Conn, clientID int) {
 				numResps++
 
 			} else {
-				//re-route packet
+				//re-routing packets which were previously planned for failed slav
+				//YOU HAVE FAILED THIS PACKET, SLAVE!!
+				// for chunkID, reqSlaveId := range reqSlaveIds {
+				// 	if reqSlaveId == newMsg.slaveID {
+
+				// 	}
+				// }
 			}
 		}
 	}
@@ -238,6 +250,9 @@ func runClient(conn net.Conn, clientID int) {
 	if isFound == false {
 		conn.Write([]byte("0"))
 	}
+
+	//book-keeping removal
+	delete(clients, clientID)
 }
 
 func broadcastHalt(haltMsg message, reqSlaveIds []int, foundRespID intint, clientID int) {
@@ -256,44 +271,51 @@ func broadcastHalt(haltMsg message, reqSlaveIds []int, foundRespID intint, clien
 	}
 }
 
-func scheduleJobs(toFind string, myID int) []int {
-	numReqs := []int{}
-	//iterating over all chunks to search on
-	for i := 1; i <= numChunks; i++ {
-		slaveIds, ok := chunks[i]
-		log.Printf("chunk %d: %v", i, slaveIds)
+func scheduleChunk(i int, toFind string, myID int) int {
+	slaveIds, ok := chunks[i]
+	minLoadSlaveID := -1
 
-		if ok == false {
-			log.Printf("chunk %d isn't connected to any slave", i)
+	if ok == false {
+		log.Printf("chunk %d isn't connected to any slave", i)
 
-		} else {
-			minLoad := math.MaxInt32
-			minLoadSlaveID := -1
+	} else {
+		minLoad := math.MaxInt32
 
-			//finding minimum load of all slaves currently hosting chunks[i]
-			for _, currSlaveID := range slaveIds {
-				currSlave, ok := slaves[currSlaveID]
+		//finding minimum load of all slaves currently hosting chunks[i]
+		for _, currSlaveID := range slaveIds {
+			currSlave, ok := slaves[currSlaveID]
 
-				if ok == true {
-					if currSlave.load < minLoad {
-						minLoad = currSlave.load
-						minLoadSlaveID = currSlaveID
-					}
+			if ok == true {
+				if currSlave.load < minLoad {
+					minLoad = currSlave.load
+					minLoadSlaveID = currSlaveID
 				}
 			}
+		}
 
-			//sending search request to slave having minimum load
-			msg := message{messageType: "S", clientID: myID, slaveID: minLoadSlaveID,
-				chunkID: i, toFind: toFind}
-			log.Printf("client %d: searching in chunk %d through slave %d (load=%d)",
-				myID, i, minLoadSlaveID, slaves[minLoadSlaveID].load)
-			slaves[minLoadSlaveID].sendQuery(msg)
+		//sending search request to slave having minimum load
+		msg := message{messageType: "S", clientID: myID, slaveID: minLoadSlaveID,
+			chunkID: i, toFind: toFind}
+		log.Printf("client %d: searching in chunk %d through slave %d (load=%d)",
+			myID, i, minLoadSlaveID, slaves[minLoadSlaveID].load)
+		slaves[minLoadSlaveID].sendQuery(msg)
 
-			time.Sleep(time.Duration(1) * time.Second)
-			numReqs = append(numReqs, minLoadSlaveID)
+		time.Sleep(time.Duration(1) * time.Second)
+	}
+
+	return minLoadSlaveID
+}
+
+func scheduleJobs(toFind string, myID int) []int {
+	reqSlaveIds := []int{}
+	//iterating over all chunks to search on
+	for i := 1; i <= numChunks; i++ {
+		ans := scheduleChunk(i, toFind, myID)
+		if ans != -1 {
+			reqSlaveIds = append(reqSlaveIds, ans)
 		}
 	}
-	return numReqs
+	return reqSlaveIds
 }
 
 func main() {
