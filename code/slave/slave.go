@@ -130,12 +130,11 @@ func handleRequest(conn net.Conn, reqID intint, req *request, toFind string) {
 		isFound := false
 		isHalt := false
 		s, err := Readln(r)
-		for (err == nil) && (isFound == false) && (isHalt == false) {
 
+		for (err == nil) && (isFound == false) && (isHalt == false) {
 			select {
 			case <-req.channel:
 				isHalt = true
-				// fmt.Printf("halt response gathered!\n")
 			default:
 				if s == toFind {
 					isFound = true
@@ -144,15 +143,14 @@ func handleRequest(conn net.Conn, reqID intint, req *request, toFind string) {
 			}
 		}
 
+		//deleting the request ASAP, as the whole processing is done to generate a response
+		delete(requests, reqID)
 		outMsg := req.msg
-		if isHalt == true {
-			//fmt.Printf("request halted, deleted req=%d %d\n", reqID.first, reqID.second)
-			delete(requests, reqID)
-			return
 
+		if isHalt == true {
+			outMsg.messageType = "T"
 		} else if isFound == true {
 			outMsg.messageType = "F"
-
 		} else {
 			outMsg.messageType = "N"
 		}
@@ -161,8 +159,6 @@ func handleRequest(conn net.Conn, reqID intint, req *request, toFind string) {
 			outMsg.messageType, outMsg.toFind, outMsg.slaveID, outMsg.clientID, outMsg.chunkID)
 
 		conn.Write([]byte(msg2str(outMsg)))
-		//fmt.Printf("finished processing, deleted req=%d %d\n", reqID.first, reqID.second)
-		delete(requests, reqID)
 	}
 }
 

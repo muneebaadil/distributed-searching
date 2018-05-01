@@ -207,7 +207,7 @@ func runClient(conn net.Conn, clientID int) {
 			// haltMsg := message{messageType: "H", slaveID: reqSlaveIds[0],
 			// 	clientID: clientID, chunkID: 1}
 
-			//broadcastHalt(haltMsg, reqSlaveIds, foundRespID, clientID)
+			// broadcastHalt(haltMsg, reqSlaveIds, foundRespID, clientID)
 
 		} else if newMsg.messageType == "E" {
 			if isFound == true {
