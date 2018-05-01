@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -9,10 +10,16 @@ import (
 )
 
 func main() {
+	var fileName string
+	var totalChunks int
+	var outDir string
 
-	fileToBeChunked := "../data/passwords.txt"
-
-	file, err := os.Open(fileToBeChunked)
+	flag.StringVar(&fileName, "fileName", "../data/passwords.txt", "filename to"+
+		" make chunks of")
+	flag.IntVar(&totalChunks, "totalChunks", 4, "number of equal chunks to divide "+
+		"the file in")
+	flag.StringVar(&outDir, "outDir", "../data/chunks/", "directory to save chunks in")
+	file, err := os.Open(fileName)
 
 	if err != nil {
 		fmt.Println(err)
@@ -23,8 +30,7 @@ func main() {
 
 	fileInfo, _ := file.Stat()
 	var fileSize int64 = fileInfo.Size()
-	const totalPartsNum_ = 4
-	const fileChunk = (716 / totalPartsNum_) * (1 << 20)
+	var fileChunk uint64 = uint64((716 / totalChunks) * (1 << 20))
 	// 1 MB, change this to your requirement
 
 	// calculate total number of parts the file will be chunked into
@@ -33,13 +39,13 @@ func main() {
 
 	for i := uint64(0); i < totalPartsNum; i++ {
 
-		partSize := int(math.Min(fileChunk, float64(fileSize-int64(i*fileChunk))))
+		partSize := int(math.Min(float64(fileChunk),
+			float64(fileSize-int64(i*fileChunk))))
 		partBuffer := make([]byte, partSize)
-
 		file.Read(partBuffer)
 
 		// write to disk
-		fileName := "../data/chunks/" + strconv.FormatUint(i+1, 10) + ".txt"
+		fileName := outDir + strconv.FormatUint(i+1, 10) + ".txt"
 		_, err := os.Create(fileName)
 
 		if err != nil {
