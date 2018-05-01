@@ -19,6 +19,8 @@ func main() {
 	flag.IntVar(&totalChunks, "totalChunks", 4, "number of equal chunks to divide "+
 		"the file in")
 	flag.StringVar(&outDir, "outDir", "../data/chunks/", "directory to save chunks in")
+	flag.Parse()
+
 	file, err := os.Open(fileName)
 
 	if err != nil {

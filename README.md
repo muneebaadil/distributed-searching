@@ -15,6 +15,15 @@
     ```
     go run split.go
     ```
+    All options are given below
+    ```
+    -fileName string
+        filename to make chunks of (default "../data/passwords.txt")
+    -outDir string
+        directory to save chunks in (default "../data/chunks/")
+    -totalChunks int
+        number of equal chunks to divide the file in (default 4)
+    ```
     Doing so will split the data into chunks and will save in `chunks/` subdirectory inside the `data/`; you should now have the following directory structure 
     ```
     code/
