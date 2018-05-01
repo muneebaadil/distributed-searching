@@ -104,8 +104,6 @@ func handleConnection(conn net.Conn, chunkIds string) {
 
 				//delegating the request to go routine
 				go handleRequest(conn, reqID, newReq, newMsg.toFind)
-			} else {
-				log.Printf("too late; halt statement reqid = %d %d\n", reqID.first, reqID.second)
 			}
 
 		} else { //if request already being handled

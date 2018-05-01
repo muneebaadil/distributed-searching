@@ -77,6 +77,15 @@ func str2msg(str string) message {
 	return out
 }
 
+func remove(s []int, r int) []int {
+	for i, v := range s {
+		if v == r {
+			return append(s[:i], s[i+1:]...)
+		}
+	}
+	return s
+}
+
 //global maps for book-keeping
 var chunks = make(map[int][]int)    //chunk ID -> slave IDs
 var slaves = make(map[int]*slave)   //slave ID -> pointer to slave object
@@ -130,14 +139,21 @@ func runSlave(conn net.Conn, slaveID int) {
 
 	//indefinite reading of responses from slave
 	for true {
-		//conn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
 		n, err := conn.Read(buffer)
 
 		if err != nil {
 			conn.Close()
 			log.Printf("connection lost")
 
-			//re-reoute pending requests to other slaves
+			// book-keeping removal
+			delete(slaves, slaveID)
+			for chunkID, slaveIds := range chunks {
+				if len(slaveIds) == 1 {
+					delete(chunks, chunkID)
+				} else {
+					chunks[chunkID] = remove(slaveIds, slaveID)
+				}
+			}
 			break
 
 		} else {
@@ -245,6 +261,7 @@ func scheduleJobs(toFind string, myID int) []int {
 	//iterating over all chunks to search on
 	for i := 1; i <= numChunks; i++ {
 		slaveIds, ok := chunks[i]
+		log.Printf("chunk %d: %v", i, slaveIds)
 
 		if ok == false {
 			log.Printf("chunk %d isn't connected to any slave", i)
@@ -255,21 +272,22 @@ func scheduleJobs(toFind string, myID int) []int {
 
 			//finding minimum load of all slaves currently hosting chunks[i]
 			for _, currSlaveID := range slaveIds {
-				currSlave := slaves[currSlaveID]
+				currSlave, ok := slaves[currSlaveID]
 
-				if currSlave.load < minLoad {
-					minLoad = currSlave.load
-					minLoadSlaveID = currSlaveID
+				if ok == true {
+					if currSlave.load < minLoad {
+						minLoad = currSlave.load
+						minLoadSlaveID = currSlaveID
+					}
 				}
 			}
 
 			//sending search request to slave having minimum load
 			msg := message{messageType: "S", clientID: myID, slaveID: minLoadSlaveID,
 				chunkID: i, toFind: toFind}
-			slaves[minLoadSlaveID].sendQuery(msg)
-
 			log.Printf("client %d: searching in chunk %d through slave %d (load=%d)",
 				myID, i, minLoadSlaveID, slaves[minLoadSlaveID].load)
+			slaves[minLoadSlaveID].sendQuery(msg)
 
 			time.Sleep(time.Duration(1) * time.Second)
 			numReqs = append(numReqs, minLoadSlaveID)
