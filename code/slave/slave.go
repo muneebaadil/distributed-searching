@@ -100,8 +100,8 @@ func handleConnection(conn net.Conn, chunkIds string) {
 				//registering a new request
 				newReq := &request{msg: newMsg, channel: make(chan message)}
 				requests[reqID] = newReq
-				//fmt.Printf("registering new reqid = %d %d\n", reqID.first,
-				//	reqID.second)
+				log.Printf("Req (client = %d, chunk = %d): Registered!\n", reqID.first,
+					reqID.second)
 
 				//delegating the request to go routine
 				go handleRequest(conn, reqID, newReq, newMsg.toFind)
@@ -132,10 +132,13 @@ func handleRequest(conn net.Conn, reqID intint, req *request, toFind string) {
 			select {
 			case <-req.channel:
 				isHalt = true
+				log.Printf("Req (Client = %d, Chunk = %d): TERMINATED!\n", reqID.first,
+					reqID.second)
 			default:
 				if s == toFind {
 					isFound = true
-					//fmt.Printf("Found it!\n")
+					log.Printf("Req (Client = %d, Chunk = %d): FOUND!\n", reqID.first,
+						reqID.second)
 				}
 				s, err = Readln(r)
 			}
@@ -152,11 +155,9 @@ func handleRequest(conn net.Conn, reqID intint, req *request, toFind string) {
 			outMsg.messageType = "F"
 		} else {
 			outMsg.messageType = "N"
+			log.Printf("Req (Client = %d, Chunk = %d): NOT FOUND\n", reqID.first,
+				reqID.second)
 		}
-
-		log.Printf("msg type %s, tofind %s, slave %d, client %d, chunk %d \n",
-			outMsg.messageType, outMsg.toFind, outMsg.slaveID, outMsg.clientID,
-			outMsg.chunkID)
 
 		conn.Write([]byte(msg2str(outMsg)))
 	}

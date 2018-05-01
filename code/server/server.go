@@ -114,7 +114,7 @@ func listenForSlaves(portNum string) {
 			continue
 		}
 
-		log.Printf("Slave %d Connected!", nextSlave)
+		//log.Printf("Slave %d (%s) Connected!\n", nextSlave, conn.RemoteAddr())
 		go runSlave(conn, nextSlave)
 
 		nextSlave++
@@ -131,6 +131,8 @@ func runSlave(conn net.Conn, slaveID int) {
 	n, _ := conn.Read(buffer)
 	newMsg := string(buffer[:n])
 	chunkIds := strings.Split(newMsg, " ")
+	log.Printf("Slave %d (%s) Connected! Chunks Collection = %v", slaveID,
+		conn.RemoteAddr(), newMsg)
 
 	//updating chunk directory
 	for _, chunkId_ := range chunkIds {
@@ -190,7 +192,7 @@ func listenForClients(portNum string) {
 			continue
 		}
 
-		log.Printf("Client %d Connected!", nextClient)
+		log.Printf("Client %d (%v) Connected!\n", nextClient, conn.RemoteAddr())
 		go runClient(conn, nextClient)
 
 		nextClient++
@@ -205,7 +207,7 @@ func runClient(conn net.Conn, clientID int) {
 	buffer := make([]byte, bufferSize)
 	n, _ := conn.Read(buffer)
 	toFind := string(buffer[:n])
-	log.Printf("client %d: string to find: %s", clientID, toFind)
+	log.Printf("Client %d: To search = %s\n", clientID, toFind)
 
 	reqSlaveIds := scheduleJobs(toFind, clientID)
 	isFound := false
@@ -217,16 +219,21 @@ func runClient(conn net.Conn, clientID int) {
 		if newMsg.messageType == "N" || newMsg.messageType == "T" {
 			numResps++
 
-			log.Printf("client %d (num responses = %d): message %s, slave %d, chunk %d",
-				clientID, numResps, newMsg.messageType, newMsg.slaveID, newMsg.chunkID)
+			if newMsg.messageType == "N" {
+				log.Printf("Client %d: slave %d, chunk %d; NOT FOUND",
+					clientID, newMsg.slaveID, newMsg.chunkID)
+			} else {
+				log.Printf("Client %d: slave %d, chunk %d; TERMINATED",
+					clientID, newMsg.slaveID, newMsg.chunkID)
+			}
 
 		} else if newMsg.messageType == "F" {
 			numResps++
 			isFound = true
 			conn.Write([]byte("1"))
 
-			log.Printf("client %d (num responses = %d): message %s, slave %d, chunk %d",
-				clientID, numResps, newMsg.messageType, newMsg.slaveID, newMsg.chunkID)
+			log.Printf("Client %d: slave %d, chunk %d, FOUND",
+				clientID, newMsg.slaveID, newMsg.chunkID)
 
 			foundRespID := intint{newMsg.clientID, newMsg.chunkID}
 			haltMsg := message{messageType: "H", slaveID: reqSlaveIds[0],
@@ -239,7 +246,8 @@ func runClient(conn net.Conn, clientID int) {
 				numResps++
 
 			} else {
-				log.Printf("Client %d: rerouting packets\n", clientID)
+				log.Printf("Client %d: Slave %d failed; re-routing packets\n",
+					clientID, newMsg.slaveID)
 				//re-routing packets which were previously planned for failed slave
 				for chunkID, reqSlaveId := range reqSlaveIds {
 					if reqSlaveId == newMsg.slaveID {
@@ -268,7 +276,7 @@ func broadcastHalt(haltMsg message, reqSlaveIds []int, foundRespID intint,
 		haltMsg.chunkID = chunkID + 1
 
 		if (foundRespID != intint{clientID, chunkID + 1}) {
-			log.Printf("client %d: sending halt message to slave %d, chunk %d\n",
+			log.Printf("Client %d: Sending halt message to slave %d, chunk %d\n",
 				clientID, slaveID, chunkID+1)
 			slaves[slaveID].sendHalt(haltMsg)
 			time.Sleep(time.Duration(1) * time.Second)
@@ -281,7 +289,7 @@ func scheduleChunk(i int, toFind string, myID int) int {
 	minLoadSlaveID := -1
 
 	if ok == false {
-		log.Printf("chunk %d isn't connected to any slave", i)
+		//log.Printf("chunk %d isn't connected to any slave", i)
 
 	} else {
 		minLoad := math.MaxInt32
@@ -301,7 +309,7 @@ func scheduleChunk(i int, toFind string, myID int) int {
 		//sending search request to slave having minimum load
 		msg := message{messageType: "S", clientID: myID, slaveID: minLoadSlaveID,
 			chunkID: i, toFind: toFind}
-		log.Printf("client %d: searching in chunk %d through slave %d (load=%d)",
+		log.Printf("Client %d: Searching chunk %d through slave %d (load=%d)",
 			myID, i, minLoadSlaveID, slaves[minLoadSlaveID].load)
 		slaves[minLoadSlaveID].sendQuery(msg)
 
@@ -332,8 +340,6 @@ func main() {
 		" clients connection")
 	flag.IntVar(&numChunks, "numChunks", 4, "total number of chunks (must be"+
 		" numbered from 1-numChunks inclusive)")
-	flag.IntVar(&timeout, "timeout", 3, "time threshold (in seconds) for"+
-		" heartbeat from slaves")
 	flag.Parse()
 
 	//simalteneously listening for clients and slaves
