@@ -81,16 +81,3 @@
     -toFind string
         string to search from the server (default "helloworld")
     ```
-
-## 3. Technical Details
-### 3.1. Internal Architecture
-#### 3.1.1. Server 
-#### 3.1.2. Slave
-
-### 3.1. Message Codes Semantics
-1. **S**(earch) - sent from server to slave to search for a particular number. 
-2. **F**(ound) - sent from slave to server. 
-3. **N**(ot found) - sent from slave to server.
-4. **H**(alt) - sent from server to slave to halt the other processes when the number is found elsewhere. 
-5. **T**(erminated) - sent from slave to server as an acknowledgement of halt command from server.
-6. **E**(rror) - used internally for server when a slave disconnects during the query and client needs to re-route the query to other slaves.
